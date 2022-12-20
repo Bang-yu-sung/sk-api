@@ -3,7 +3,9 @@ package cubox.aero.skapi.service;
 import cubox.aero.skapi.type.HttpType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -22,6 +24,12 @@ import static cubox.aero.skapi.type.HttpType.*;
 @Service
 @RequiredArgsConstructor
 public class FaceApiService {
+
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+
+    @Value("${frs.server.url}")
+    private String frsServerUrl;
+
 
     public String addFace(String faceId, String jsonImage) throws Exception {
         HashMap<String, String> faceInfo = new HashMap<>();
@@ -64,6 +72,15 @@ public class FaceApiService {
 //        return getFaceApiResult(FEATURE_SCORE_URL.getValue(), faceInfo, POST);
 //    }
 
+    public String reDirect(String param, String token, String frsApiUrl) throws Exception {
+
+        String reqUrl = frsServerUrl + "/v1/" + frsApiUrl;
+
+        logger.info("reqUrl : {}", reqUrl);
+
+        return sendPost(reqUrl, token, param);
+    }
+
     private String getFaceApiResult(String funcUrl, HashMap<String, String> param, HttpType type) throws Exception {
         String reqUrl = FACE_API_URL.getValue() + funcUrl;
         String result;
@@ -72,7 +89,8 @@ public class FaceApiService {
                 result = sendGet(reqUrl);
                 break;
             case POST:
-                result = sendPost(reqUrl, new JSONObject(param).toJSONString());
+                // result = sendPost(reqUrl, new JSONObject(param).toJSONString());
+                result = "";
                 break;
             case DELETE:
                 result = sendDelete(reqUrl + "/" + param.get("faceId"));
@@ -84,10 +102,17 @@ public class FaceApiService {
         return result;
     }
 
-    private String sendPost(String url, String params) throws Exception {
+    private String sendPost(String url, String token, String params) throws Exception {
         log.info("\nSending 'POST' request to URL : " + url);
+        log.info("\nSending 'POST' request params : " + params);
         HttpURLConnection con = getConnectionSetDefaultHeader(url, POST);
-        con.setRequestProperty("x-api-key", X_API_KEY.getValue());
+        con.setRequestProperty("Accept", "application/json");
+        con.setRequestProperty("Content-Type", "application/json");
+        con.setRequestProperty("X-Api-Key", "CUFRSDEV-A01B-C23D-45EF-6G7H89I0123J");
+        if (token != null) {
+            con.setRequestProperty("Authorization", token);
+        }
+
         con.setDoOutput(true); // Send post request, 항상 갱신된내용을 가져옴.
         DataOutputStream wr = new DataOutputStream(con.getOutputStream());
         wr.writeBytes(params);

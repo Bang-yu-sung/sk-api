@@ -7,6 +7,7 @@ import org.json.simple.JSONObject;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.Base64;
 
 @Slf4j
@@ -17,6 +18,15 @@ public class ApiService {
     private final EncryptionUtil encryptionUtil;
     private final FaceApiService faceApiService;
 
+
+    public String frsReDirect(String param, String token, String level1) throws Exception{
+        return faceApiService.reDirect(param, token, level1);
+    }
+
+    public String frsReDirect(String param, String token, String level1, String level2) throws Exception{
+        String apiUrl = level1 + "/" + level2;
+        return faceApiService.reDirect(param, token, apiUrl);
+    }
 
     public JSONObject addUser(String faceId, MultipartFile file) {
         String resMsg;
