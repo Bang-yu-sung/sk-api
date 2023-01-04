@@ -2,6 +2,7 @@ package cubox.aero.skapi.controller;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import cubox.aero.skapi.axis.AxisSock;
 import cubox.aero.skapi.exception.BadRequestException;
 import cubox.aero.skapi.exception.InternalServerErrorException;
 import cubox.aero.skapi.exception.NoMatchException;
@@ -42,11 +43,19 @@ public class ApiController {
     private static final String charset = "UTF-8";
     private static final String CRLF = "\r\n";
 
+    @Autowired
+    private AxisSock axisApi;
+    private byte[] m_recvData = null;
+
     private PrintWriter writer = null;
     private OutputStream output = null;
 
     @Value("${frs.server.url}")
     private String frsServerUrl;
+
+    @Value("${frs.api.key}")
+    private String frsApiKey;
+
 
     @Value("${user.image.location}")
     private String userImageLocation;
@@ -54,6 +63,24 @@ public class ApiController {
 
     @Value("${user.image.type}")
     private String userImageType;
+
+    @Value("${tr.server.ip}")
+    private String trServerIp;
+
+    @Value("${tr.server.port}")
+    private int trServerPort;
+
+    @Value("${tr.use.yn}")
+    private String trUseYn;
+
+    @Value("${tr.test.yn}")
+    private String trTestYn;
+
+    @Value("frs.aes.vec")
+    private String aesVec;
+
+    @Value("frs.aes.key")
+    private String aesKey;
 
 
     @Autowired
@@ -129,7 +156,7 @@ public class ApiController {
                 connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
                 connection.setRequestProperty("Accept", "multipart/form-data; boundary=" + boundary);
                 connection.setRequestMethod("POST");
-                connection.setRequestProperty("X-Api-Key", "CUFRSDEV-A01B-C23D-45EF-6G7H89I0123J");
+                connection.setRequestProperty("X-Api-Key", frsApiKey);
                 if (token != null) {
                     connection.setRequestProperty("Authorization", token);
                 }
@@ -219,41 +246,58 @@ public class ApiController {
 
             if (userImageType.equals("NAS")) {
 
-                //SSL 무시하기
-                TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
-                    public X509Certificate[] getAcceptedIssuers() {
-                        return null;
+
+                byte[] bytes = null;
+
+                if (trUseYn.equals("Y")) {
+
+
+                    String trCode = request.getParameter("userId");
+                    byte[] acData = "005930".getBytes();
+
+                    if (trTestYn.equals("Y")) {
+
+                        // "SIS15020" 0 0x005930, 7
+
+                        trCode = "SIS15020";
                     }
 
-                    public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                    }
+                    Map<String, Object> trMap = doTrRecv(trCode, acData, 7);
+                    bytes = (byte[]) trMap.get("rcvDt");
 
-                    public void checkServerTrusted(X509Certificate[] certs, String authType) {
-                    }
-                }};
 
-                SSLContext sc = SSLContext.getInstance("SSL");
-                sc.init(null, trustAllCerts, new java.security.SecureRandom());
-                HttpsURLConnection
-                        .setDefaultSSLSocketFactory(sc.getSocketFactory());
-                //end
+                } else {
+                    //SSL 무시하기
+                    TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
+                        public X509Certificate[] getAcceptedIssuers() {
+                            return null;
+                        }
 
-                String userIdUrl = "https://demo.cubox.aero:6880/demoApps/" + request.getParameter("userId");
+                        public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                        }
 
-                logger.info("userIdUrl : {}", userIdUrl);
+                        public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                        }
+                    }};
 
-                URL imageUrl = new URL(userIdUrl);
+                    SSLContext sc = SSLContext.getInstance("SSL");
+                    sc.init(null, trustAllCerts, new java.security.SecureRandom());
+                    HttpsURLConnection
+                            .setDefaultSSLSocketFactory(sc.getSocketFactory());
+                    //end
 
-                byte[] bytes = IOUtils.toByteArray(imageUrl);
+                    String userIdUrl = "https://demo.cubox.aero:6880/demoApps/" + request.getParameter("userId");
+
+                    logger.info("userIdUrl : {}", userIdUrl);
+
+                    URL imageUrl = new URL(userIdUrl);
+                    bytes = IOUtils.toByteArray(imageUrl);
+                }
 
                 logger.info("byte length : {}", bytes.length);
 
-                // 암호화
-                String AES_Vec = "dev0frs123cubox4";
-                String AES_Key = "A?C(H+MbQe1324Yq3t6w9z&C&F)J@NcR";
-
-                SecretKeySpec keySpec = new SecretKeySpec(AES_Key.getBytes(), "AES");
-                IvParameterSpec ivParamSpec = new IvParameterSpec(AES_Vec.getBytes());
+                SecretKeySpec keySpec = new SecretKeySpec(aesKey.getBytes(), "AES");
+                IvParameterSpec ivParamSpec = new IvParameterSpec(aesVec.getBytes());
                 Cipher c = Cipher.getInstance("AES/CBC/PKCS5PADDING");
                 c.init(Cipher.ENCRYPT_MODE, keySpec, ivParamSpec);
                 byte[] encVal = c.doFinal(bytes);
@@ -415,36 +459,33 @@ public class ApiController {
         writer.append(sb).flush();
     }
 
+    private Map<String, Object> doTrRecv(String trCode, byte[] acData, int trLength) {
 
-//    @PostMapping("/image-form")
-//    public JSONObject imageForm(@RequestParam("imageUrl") String url,
-//                                @RequestPart("image") List<MultipartFile> iList) {
-//
-//        logger.info("imageUrl : {}", url);
-//        MultipartFile image = iList.get(0);
-//
-//
-//        try {
-//
-//            URL imageUrl = new URL(url);
-//            BufferedImage urlImage = ImageIO.read(imageUrl);
-//
-//            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-//            ImageIO.write(urlImage, "jpg", baos);
-//            byte[] bytes = baos.toByteArray();
-//
-//            apiService.match(bytes, image);
-//
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//
-//
-//        JSONObject json = new JSONObject();
-//        return json;
-//    }
+        // 실제 tr 송/수신 부분
+        // 접속 서버 ip, port 세팅
+        // 테스트를 위한 테스트 서버 공인아이피, 포트
+        // 전용선 작업이후 새로운 아이피,포트 제공 예정
+        axisApi.setInfo(trServerIp, trServerPort);
+
+
+        // fid 조회 인 경우 세팅 필요, 일반 tr 0
+        // 응답전문 m_recvData에 있음
+        m_recvData = axisApi.AxisCall(trCode, 0, acData, trLength);
+        // 사용예, 서버시간 조회
+        //m_recvData = m_axSock.AxisCall("10612", 0, " ", 1);
+
+        // error code get
+        byte[] errcod = axisApi.getErrCod();
+        // error message get
+        byte[] errmsg = axisApi.getErrMsg();
+
+        Map<String, Object> resultMap = new HashMap<>();
+        resultMap.put("errCd", errcod);
+        resultMap.put("errMsg", errmsg);
+
+        resultMap.put("rcvDt", m_recvData);
+
+        return resultMap;
+    }
 
 }
-
-
-
