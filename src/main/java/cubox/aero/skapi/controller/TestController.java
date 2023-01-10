@@ -1,8 +1,8 @@
 package cubox.aero.skapi.controller;
 
 
-import axis.api.define.axFid;
 import cubox.aero.skapi.axis.AxisSock;
+import cubox.aero.skapi.axis.axFid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +37,7 @@ public class TestController {
 
         byte[] bytes = null;
 
-        String resultStr = "fail";
+        String resultStr = "success";
 
         String trCode = "SIS15020";
         byte[] acData = "005930".getBytes();
@@ -48,14 +48,17 @@ public class TestController {
             trMap = doTrRecv(trCode, acData, 7);
         } catch (Exception e) {
             e.printStackTrace();
-
         }
 
         bytes = (byte[]) trMap.get("rcvDt");
 
         logger.info("tr transaction test : {}", bytes);
 
-        return "success";
+        if(bytes == null){
+            resultStr = "fail";
+        }
+
+        return resultStr;
     }
 
     private Map<String, Object> doTrRecv(String trCode, byte[] acData, int trLength) {

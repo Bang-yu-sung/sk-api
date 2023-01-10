@@ -82,6 +82,19 @@ public class ApiController {
     @Value("frs.aes.key")
     private String aesKey;
 
+    /**
+     * 신한카드 암호화
+     */
+
+    @Value("shcard.aes.yn")
+    private String shcardAesYn;
+
+    @Value("shcard.aes.key")
+    private String shcardAesKey;
+
+    @Value("shcard.aes.vec")
+    private String shcardAesVec;
+
 
     @Autowired
     private ApiService apiService;
@@ -100,9 +113,13 @@ public class ApiController {
 
         json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(map);
 
-        String result = "";
+        String result = apiService.frsReDirect(json, token, level1);
 
-        return apiService.frsReDirect(json, token, level1);
+        if(shcardAesYn.equals("Y")){
+            // result 를 암호화 하자
+        }
+
+        return result;
     }
 
     @PostMapping(value = "/{level1}/{level2}", consumes = {MediaType.APPLICATION_JSON_VALUE})
@@ -119,7 +136,13 @@ public class ApiController {
 
         json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(map);
 
-        return apiService.frsReDirect(json, token, level1, level2);
+        String result = apiService.frsReDirect(json, token, level1, level2);
+
+        if(shcardAesYn.equals("Y")){
+            // result 를 암호화 하자
+        }
+
+        return result;
     }
 
     @PostMapping(value = "/{level1}/{level2}", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
@@ -365,6 +388,9 @@ public class ApiController {
 
         }
 
+        if(shcardAesYn.equals("Y")){
+            // result 를 암호화 하자
+        }
 
         return result;
 
